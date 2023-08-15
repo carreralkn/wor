@@ -2473,6 +2473,9 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 	struct yaffs_block_info *bi;
 	u32 threshold = dev->param.chunks_per_block;
 
+	u32 cb = 0;
+	u32 block_age = 0;
+
 	(void) prioritised;
 
 	/* First let's see if we need to grab a prioritised block */
@@ -2557,13 +2560,18 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 
 			pages_used = bi->pages_in_use - bi->soft_del_pages;
 
+			block_age = bi->seq_number;
+
+			cb = block_age * (1 - pages_used) / (2 * pages_used);
+
 			if (bi->block_state == YAFFS_BLOCK_STATE_FULL &&
 			    pages_used < dev->param.chunks_per_block &&
 			    (dev->gc_dirtiest < 1 ||
-			     pages_used < dev->gc_pages_in_use) &&
+			     cb > dev->gc_cb) &&
 			    yaffs_block_ok_for_gc(dev, bi)) {
 				dev->gc_dirtiest = dev->gc_block_finder;
 				dev->gc_pages_in_use = pages_used;
+				dev->gc_cb = cb;
 			}
 		}
 
@@ -2630,12 +2638,14 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
  */
 static int yaffs_check_gc(struct yaffs_dev *dev, int background)
 {
-	int aggressive = 0;
+	// int aggressive = 0;
 	int gc_ok = YAFFS_OK;
 	int max_tries = 0;
 	int min_erased;
 	int erased_chunks;
 	int checkpt_block_adjust;
+
+	int aggressive = 1;
 
 	if (dev->param.gc_control_fn &&
 		(dev->param.gc_control_fn(dev) & 1) == 0)
@@ -2660,23 +2670,23 @@ static int yaffs_check_gc(struct yaffs_dev *dev, int background)
 		    dev->n_erased_blocks * dev->param.chunks_per_block;
 
 		/* If we need a block soon then do aggressive gc. */
-		if (dev->n_erased_blocks < min_erased)
-			aggressive = 1;
-		else {
-			if (!background
-			    && erased_chunks > (dev->n_free_chunks / 4))
-				break;
+		// if (dev->n_erased_blocks < min_erased)
+		// 	aggressive = 1;
+		// else {
+		// 	if (!background
+		// 	    && erased_chunks > (dev->n_free_chunks / 4))
+		// 		break;
 
-			if (dev->gc_skip > 20)
-				dev->gc_skip = 20;
-			if (erased_chunks < dev->n_free_chunks / 2 ||
-			    dev->gc_skip < 1 || background)
-				aggressive = 0;
-			else {
-				dev->gc_skip--;
-				break;
-			}
-		}
+		// 	if (dev->gc_skip > 20)
+		// 		dev->gc_skip = 20;
+		// 	if (erased_chunks < dev->n_free_chunks / 2 ||
+		// 	    dev->gc_skip < 1 || background)
+		// 		aggressive = 0;
+		// 	else {
+		// 		dev->gc_skip--;
+		// 		break;
+		// 	}
+		// }
 
 		dev->gc_skip = 5;
 

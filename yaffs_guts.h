@@ -749,6 +749,8 @@ struct yaffs_dev {
 	unsigned gc_skip;
 	struct yaffs_summary_tags *gc_sum_tags;
 
+	unsigned gc_cb;
+
 	/* Special directories */
 	struct yaffs_obj *root_dir;
 	struct yaffs_obj *lost_n_found;

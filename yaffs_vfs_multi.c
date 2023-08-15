@@ -3293,6 +3293,7 @@ static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 	int bs[10];
 
 	yaffs_count_blocks_by_state(dev,bs);
+	seq_printf(m, "---------------version---------------CB\n");
 
 	seq_printf(m, "start_block.......... %d\n", param->start_block);
 	seq_printf(m, "end_block............ %d\n", param->end_block);
@@ -3368,6 +3369,9 @@ static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 	seq_printf(m, "n_bg_deletions....... %u\n", dev->n_bg_deletions);
 	seq_printf(m, "tags_used............ %u\n", dev->tags_used);
 	seq_printf(m, "summary_used......... %u\n", dev->summary_used);
+
+	seq_printf(m, "\n");
+	seq_printf(m, "gc_cb......... %u\n", dev->gc_cb);
 }
 
 // static int yaffs_proc_read(char *page,
