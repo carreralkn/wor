@@ -23,6 +23,9 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 	EXTRA_CFLAGS += -DYAFFS_OUT_OF_TREE
+	FPU_CFLAGS += -mhard-float
+	FPU_CFLAGS += -msse -msse2
+	CFLAGS_yaffs_guts.o += $(FPU_CFLAGS)
 
 	obj-m := $(YAFFS_O)
 
