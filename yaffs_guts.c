@@ -2630,12 +2630,14 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
  */
 static int yaffs_check_gc(struct yaffs_dev *dev, int background)
 {
-	int aggressive = 0;
+	// int aggressive = 0;
 	int gc_ok = YAFFS_OK;
 	int max_tries = 0;
 	int min_erased;
 	int erased_chunks;
 	int checkpt_block_adjust;
+
+	int aggressive = 1;
 
 	if (dev->param.gc_control_fn &&
 		(dev->param.gc_control_fn(dev) & 1) == 0)
@@ -2671,7 +2673,8 @@ static int yaffs_check_gc(struct yaffs_dev *dev, int background)
 				dev->gc_skip = 20;
 			if (erased_chunks < dev->n_free_chunks / 2 ||
 			    dev->gc_skip < 1 || background)
-				aggressive = 0;
+				// aggressive = 0;
+				aggressive = 1;
 			else {
 				dev->gc_skip--;
 				break;
@@ -2732,7 +2735,8 @@ int yaffs_bg_gc(struct yaffs_dev *dev, unsigned urgency)
 	(void) urgency;
 	yaffs_trace(YAFFS_TRACE_BACKGROUND, "Background gc %u", urgency);
 
-	yaffs_check_gc(dev, 1);
+	//yaffs_check_gc(dev, 1);
+	yaffs_check_gc(dev, 0);
 	return erased_chunks > dev->n_free_chunks / 2;
 }
 

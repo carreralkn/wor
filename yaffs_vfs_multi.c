@@ -3293,7 +3293,8 @@ static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 	int bs[10];
 
 	yaffs_count_blocks_by_state(dev,bs);
-
+	seq_printf(m, "---------------base-------------\n");
+	seq_printf(m, "\n");
 	seq_printf(m, "start_block.......... %d\n", param->start_block);
 	seq_printf(m, "end_block............ %d\n", param->end_block);
 	seq_printf(m, "total_bytes_per_chunk %d\n",
