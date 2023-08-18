@@ -750,6 +750,7 @@ struct yaffs_dev {
 	struct yaffs_summary_tags *gc_sum_tags;
 
 	unsigned gc_cb;
+	unsigned block_age;
 
 	/* Special directories */
 	struct yaffs_obj *root_dir;

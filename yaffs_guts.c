@@ -2549,9 +2549,9 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 		}
 
 		for (i = 0;
-		     i < iterations &&
-		     (dev->gc_dirtiest < 1 ||
-		      dev->gc_pages_in_use > YAFFS_GC_GOOD_ENOUGH);
+		     i < iterations;
+		    //  (dev->gc_dirtiest < 1 ||
+		    //   dev->gc_pages_in_use > YAFFS_GC_GOOD_ENOUGH);
 		     i++) {
 			dev->gc_block_finder++;
 			if (dev->gc_block_finder < dev->internal_start_block ||
@@ -2563,7 +2563,7 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 
 			pages_used = bi->pages_in_use - bi->soft_del_pages;
 
-			block_age = bi->seq_number;
+			block_age = dev->seq_number - bi->seq_number;
 			kernel_fpu_begin();
 			u = ((double)pages_used )/ ((double)dev->param.chunks_per_block);
 			cb = block_age * (1 - u) / (2 * u);
@@ -2577,11 +2577,16 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 				dev->gc_dirtiest = dev->gc_block_finder;
 				dev->gc_pages_in_use = pages_used;
 				dev->gc_cb = cb;
+				dev->block_age = block_age;
 			}
 		}
 
 		if (dev->gc_dirtiest > 0 && dev->gc_pages_in_use <= threshold)
 			selected = dev->gc_dirtiest;
+
+			yaffs_trace(YAFFS_TRACE_GC, "GC cb:%d",dev->gc_cb);
+			yaffs_trace(YAFFS_TRACE_GC, "GC page_in_use:%d", dev->gc_pages_in_use);
+			yaffs_trace(YAFFS_TRACE_GC, "GC age:%d", dev->block_age);
 	}
 
 	/*
@@ -2591,6 +2596,9 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 
 	if (!selected && dev->param.is_yaffs2 &&
 	    dev->gc_not_done >= (background ? 10 : 20)) {
+
+		yaffs_trace(YAFFS_TRACE_GC, "GC no select");
+
 		yaffs2_find_oldest_dirty_seq(dev);
 		if (dev->oldest_dirty_block > 0) {
 			selected = dev->oldest_dirty_block;
@@ -2611,11 +2619,6 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 			dev->param.chunks_per_block - dev->gc_pages_in_use,
 			prioritised);
 
-		// printk(KERN_DEBUG "yaffs: GC Selected block %d with %d free, prioritised:%d",
-		// 	"\n", selected,
-		// 	dev->param.chunks_per_block - dev->gc_pages_in_use,
-		// 	prioritised );
-
 		dev->n_gc_blocks++;
 		if (background)
 			dev->bg_gcs++;
@@ -2623,7 +2626,9 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 		dev->gc_dirtiest = 0;
 		dev->gc_pages_in_use = 0;
 		dev->gc_not_done = 0;
+
 		dev->gc_cb = 0;
+		dev->block_age = 0;
 
 		if (dev->refresh_skip > 0)
 			dev->refresh_skip--;
@@ -2755,7 +2760,8 @@ int yaffs_bg_gc(struct yaffs_dev *dev, unsigned urgency)
 	(void) urgency;
 	yaffs_trace(YAFFS_TRACE_BACKGROUND, "Background gc %u", urgency);
 
-	yaffs_check_gc(dev, 1);
+	// yaffs_check_gc(dev, 1);
+	yaffs_check_gc(dev, 0);
 	return erased_chunks > dev->n_free_chunks / 2;
 }
 

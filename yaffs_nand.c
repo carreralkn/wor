@@ -103,6 +103,10 @@ int yaffs_erase_block(struct yaffs_dev *dev, int block_no)
 	block_no -= dev->block_offset;
 	dev->n_erasures++;
 	result = dev->drv.drv_erase_fn(dev, block_no);
+
+	yaffs_trace(YAFFS_TRACE_GC, "GC n_erasures:%d", dev->n_erasures);
+	yaffs_trace(YAFFS_TRACE_GC, "GC all_gcs:%d", dev->all_gcs);
+
 	return result;
 }
 

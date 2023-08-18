@@ -183,7 +183,7 @@ static uint32_t YCALCBLOCKS(uint64_t partition_size, uint32_t block_size)
 #include "yaffs_packedtags2.h"
 #include "yaffs_getblockinfo.h"
 
-unsigned int yaffs_trace_mask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS | 0;
+unsigned int yaffs_trace_mask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS | 0 | YAFFS_TRACE_GC	;
 unsigned int yaffs_wr_attempts = YAFFS_WR_ATTEMPTS;
 unsigned int yaffs_auto_checkpoint = 1;
 unsigned int yaffs_gc_control = 1;
@@ -3040,7 +3040,8 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 
 
 	param->n_reserved_blocks = 5;
-	param->n_caches = (options.no_cache) ? 0 : 10;
+	// param->n_caches = (options.no_cache) ? 0 : 10;
+	param->n_caches = 0;
 	param->inband_tags = inband_tags;
 
 	param->enable_xattr = 1;
@@ -3316,6 +3317,7 @@ static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 				param->n_reserved_blocks);
 	seq_printf(m, "always_check_erased.. %d\n",
 				param->always_check_erased);
+	seq_printf(m, "chunks_per_block......... %u\n", param->chunks_per_block);
 	seq_printf(m, "\n");
 	seq_printf(m, "block count by state\n");
 	seq_printf(m, "0:%d 1:%d 2:%d 3:%d 4:%d\n",
@@ -3689,6 +3691,8 @@ static int yaffs_proc_show(struct seq_file *m, void *v)
 
 	struct list_head *item;
     int n = 0;
+
+	printk(KERN_DEBUG "new trace = 0x%08X\n", yaffs_trace_mask);
 
     seq_puts(m, "Multi-version YAFFS\n\n");
     mutex_lock(&yaffs_context_lock);
