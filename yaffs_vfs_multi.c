@@ -3040,7 +3040,8 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 
 
 	param->n_reserved_blocks = 5;
-	param->n_caches = (options.no_cache) ? 0 : 10;
+	// param->n_caches = (options.no_cache) ? 0 : 10;
+	param->n_caches = 0;
 	param->inband_tags = inband_tags;
 
 	param->enable_xattr = 1;
