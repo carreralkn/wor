@@ -218,6 +218,8 @@ struct yaffs_ext_tags {
 
 	loff_t extra_file_size;		/* Length if it is a file */
 	unsigned extra_equiv_id;	/* Equivalent object for a hard link */
+
+	unsigned interval;
 };
 
 /* Spare structure for YAFFS1 */
@@ -644,6 +646,14 @@ struct yaffs_tags_handler {
 	int (*mark_bad_fn) (struct yaffs_dev *dev, int block_no);
 };
 
+//To count all blocks' erase count
+struct blocks_node {
+	int block_no;
+	int erase_count;
+	struct blocks_node* prev_block;
+	struct blocks_node* next_block;
+};
+
 struct yaffs_dev {
 	struct yaffs_param param;
 	struct yaffs_driver drv;
@@ -718,7 +728,23 @@ struct yaffs_dev {
 
 	int n_erased_blocks;
 	int alloc_block;	/* Current block being allocated off */
+	
+	int cold_alloc_block;
+	// int warm_alloc_block;
+	int hot_alloc_block;
+
+	//ordered
+	struct blocks_node* ordered_count_list;
+
+	// struct blocks_node* hot_list;
+	// struct blocks_node* warm_list;
+	// struct blocks_node* cold_list;
+
 	u32 alloc_page;
+
+	u32 cold_alloc_page;
+	u32 hot_alloc_page;
+
 	int alloc_block_finder;	/* Used to search for next allocation block */
 
 	/* Object and Tnode memory management */
@@ -748,6 +774,8 @@ struct yaffs_dev {
 	unsigned gc_chunk;
 	unsigned gc_skip;
 	struct yaffs_summary_tags *gc_sum_tags;
+
+	unsigned page_hotness_interval_line;
 
 	/* Special directories */
 	struct yaffs_obj *root_dir;

@@ -3294,7 +3294,7 @@ static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 	int bs[10];
 
 	yaffs_count_blocks_by_state(dev,bs);
-	seq_printf(m, "---------------base-------------\n");
+	seq_printf(m, "---------------my-------------\n");
 	seq_printf(m, "\n");
 	seq_printf(m, "start_block.......... %d\n", param->start_block);
 	seq_printf(m, "end_block............ %d\n", param->end_block);
@@ -3327,6 +3327,8 @@ static void yaffs_dump_dev_part0(struct seq_file *m, struct yaffs_dev *dev)
 
 static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 {
+	struct blocks_node *curr = dev->ordered_count_list;
+	int i = 0;
 	seq_printf(m, "max file size....... %lld\n",
 				(long long) yaffs_max_file_size(dev));
 	seq_printf(m, "data_bytes_per_chunk. %d\n",
@@ -3370,6 +3372,11 @@ static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 	seq_printf(m, "n_bg_deletions....... %u\n", dev->n_bg_deletions);
 	seq_printf(m, "tags_used............ %u\n", dev->tags_used);
 	seq_printf(m, "summary_used......... %u\n", dev->summary_used);
+	
+	for(i = 0; i < 1024; i++) {
+		seq_printf(m, "block_no...%u...erase_count...%u...", curr->block_no, curr->erase_count);
+		curr = curr->next_block;
+	}
 }
 
 // static int yaffs_proc_read(char *page,

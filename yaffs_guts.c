@@ -358,6 +358,99 @@ int yaffs_check_alloc_available(struct yaffs_dev *dev, int n_chunks)
 	return (dev->n_free_chunks > (reserved_chunks + n_chunks));
 }
 
+static int yaffs_find_alloc_hotness_block(struct yaffs_dev *dev, int hotness)
+{
+	u32 i;
+	struct yaffs_block_info *bi;
+	struct blocks_node *curr;
+	struct blocks_node *prev = NULL;
+	int block_no = 0;
+	int erase_count = 0;
+	if (dev->n_erased_blocks < 1) {
+		/* Hoosterman we've got a problem.
+		 * Can't get space to gc
+		 */
+		yaffs_trace(YAFFS_TRACE_ERROR,
+		  "yaffs tragedy: no more erased blocks");
+
+		return -1;
+	}
+	//hotness == 1 hot, find a less erase count block
+	//hotness == 0 cold, find a more erase count block
+	if(hotness == 1) {
+		curr = dev->ordered_count_list;
+		while(curr->next_block) {
+			curr = curr->next_block;
+		}
+		//for the last to find a block with less erase count
+		bi = yaffs_get_block_info(dev, curr->block_no);
+		while(bi->block_state != YAFFS_BLOCK_STATE_EMPTY) {
+			curr = curr->prev_block;
+			bi = yaffs_get_block_info(dev, curr->block_no);
+		}
+
+		bi->block_state = YAFFS_BLOCK_STATE_ALLOCATING;
+		dev->seq_number++;
+		bi->seq_number = dev->seq_number;
+		dev->n_erased_blocks--;
+
+		yaffs_trace(YAFFS_TRACE_ALLOCATE,
+			  "Allocated block %d, seq  %d, %d left" ,
+			   curr->block_no, dev->seq_number,
+			   dev->n_erased_blocks);
+		return curr->block_no;
+	}
+	else {
+		curr = dev->ordered_count_list;
+		bi = yaffs_get_block_info(dev, curr->block_no);
+		while(bi->block_state != YAFFS_BLOCK_STATE_EMPTY) {
+			curr = curr->next_block;
+			bi = yaffs_get_block_info(dev, curr->block_no);
+		}
+
+		bi->block_state = YAFFS_BLOCK_STATE_ALLOCATING;
+		dev->seq_number++;
+		bi->seq_number = dev->seq_number;
+		dev->n_erased_blocks--;
+
+		yaffs_trace(YAFFS_TRACE_ALLOCATE,
+			  "Allocated block %d, seq  %d, %d left" ,
+			   curr->block_no, dev->seq_number,
+			   dev->n_erased_blocks);
+		return curr->block_no;
+	}
+
+	/* Find an empty block. */
+
+	// for (i = dev->internal_start_block; i <= dev->internal_end_block; i++) {
+	// 	dev->alloc_block_finder++;
+	// 	if (dev->alloc_block_finder < (int)dev->internal_start_block
+	// 	    || dev->alloc_block_finder > (int)dev->internal_end_block) {
+	// 		dev->alloc_block_finder = dev->internal_start_block;
+	// 	}
+
+	// 	bi = yaffs_get_block_info(dev, dev->alloc_block_finder);
+
+	// 	if (bi->block_state == YAFFS_BLOCK_STATE_EMPTY) {
+	// 		bi->block_state = YAFFS_BLOCK_STATE_ALLOCATING;
+	// 		dev->seq_number++;
+	// 		bi->seq_number = dev->seq_number;
+	// 		dev->n_erased_blocks--;
+	// 		yaffs_trace(YAFFS_TRACE_ALLOCATE,
+	// 		  "Allocated block %d, seq  %d, %d left" ,
+	// 		   dev->alloc_block_finder, dev->seq_number,
+	// 		   dev->n_erased_blocks);
+	// 		return dev->alloc_block_finder;
+	// 	}
+	// }
+
+	yaffs_trace(YAFFS_TRACE_ALWAYS,
+		"yaffs tragedy: no more erased blocks, but there should have been %d",
+		dev->n_erased_blocks);
+
+	return -1;
+}
+
 static int yaffs_find_alloc_block(struct yaffs_dev *dev)
 {
 	u32 i;
@@ -400,6 +493,110 @@ static int yaffs_find_alloc_block(struct yaffs_dev *dev)
 	yaffs_trace(YAFFS_TRACE_ALWAYS,
 		"yaffs tragedy: no more erased blocks, but there should have been %d",
 		dev->n_erased_blocks);
+
+	return -1;
+}
+
+static int yaffs_alloc_hot_chunk(struct yaffs_dev *dev, int use_reserver,
+			     struct yaffs_block_info **block_ptr)
+{
+	int ret_val;
+	struct yaffs_block_info *bi;
+
+	if (dev->hot_alloc_block < 0) {
+		/* Get next block to allocate off */
+		dev->hot_alloc_block = yaffs_find_alloc_hotness_block(dev, 1);//hot
+		dev->hot_alloc_page = 0;
+	}
+
+	if (!use_reserver && !yaffs_check_alloc_available(dev, 1)) {
+		/* No space unless we're allowed to use the reserve. */
+		return -1;
+	}
+
+	if (dev->n_erased_blocks < (int)dev->param.n_reserved_blocks
+	    && dev->hot_alloc_page == 0)
+		yaffs_trace(YAFFS_TRACE_ALLOCATE, "Allocating reserve");
+
+	/* Next page please.... */
+	if (dev->hot_alloc_block >= 0) {
+		bi = yaffs_get_block_info(dev, dev->hot_alloc_block);
+
+		ret_val = (dev->hot_alloc_block * dev->param.chunks_per_block) +
+		    dev->hot_alloc_page;
+		bi->pages_in_use++;
+		yaffs_set_chunk_bit(dev, dev->hot_alloc_block, dev->hot_alloc_page);
+
+		dev->hot_alloc_page++;
+
+		dev->n_free_chunks--;
+
+		/* If the block is full set the state to full */
+		if (dev->hot_alloc_page >= dev->param.chunks_per_block) {
+			bi->block_state = YAFFS_BLOCK_STATE_FULL;
+			dev->alloc_block = -1;
+		}
+
+		if (block_ptr)
+			*block_ptr = bi;
+
+		return ret_val;
+	}
+
+	yaffs_trace(YAFFS_TRACE_ERROR,
+		"!!!!!!!!! Allocator out !!!!!!!!!!!!!!!!!");
+
+	return -1;
+}
+
+static int yaffs_alloc_cold_chunk(struct yaffs_dev *dev, int use_reserver,
+			     struct yaffs_block_info **block_ptr)
+{
+	int ret_val;
+	struct yaffs_block_info *bi;
+
+	if (dev->cold_alloc_block < 0) {
+		/* Get next block to allocate off */
+		dev->cold_alloc_block = yaffs_find_alloc_hotness_block(dev, 0);//cold
+		dev->cold_alloc_page = 0;
+	}
+
+	if (!use_reserver && !yaffs_check_alloc_available(dev, 1)) {
+		/* No space unless we're allowed to use the reserve. */
+		return -1;
+	}
+
+	if (dev->n_erased_blocks < (int)dev->param.n_reserved_blocks
+	    && dev->cold_alloc_page == 0)
+		yaffs_trace(YAFFS_TRACE_ALLOCATE, "Allocating reserve");
+
+	/* Next page please.... */
+	if (dev->cold_alloc_block >= 0) {
+		bi = yaffs_get_block_info(dev, dev->cold_alloc_block);
+
+		ret_val = (dev->cold_alloc_block * dev->param.chunks_per_block) +
+		    dev->cold_alloc_page;
+		bi->pages_in_use++;
+		yaffs_set_chunk_bit(dev, dev->cold_alloc_block, dev->cold_alloc_page);
+
+		dev->cold_alloc_page++;
+
+		dev->n_free_chunks--;
+
+		/* If the block is full set the state to full */
+		if (dev->cold_alloc_page >= dev->param.chunks_per_block) {
+			bi->block_state = YAFFS_BLOCK_STATE_FULL;
+			dev->cold_alloc_block = -1;
+		}
+
+		if (block_ptr)
+			*block_ptr = bi;
+
+		return ret_val;
+	}
+
+	yaffs_trace(YAFFS_TRACE_ERROR,
+		"!!!!!!!!! Allocator out !!!!!!!!!!!!!!!!!");
 
 	return -1;
 }
@@ -484,6 +681,116 @@ void yaffs_skip_rest_of_block(struct yaffs_dev *dev)
 			dev->alloc_block = -1;
 		}
 	}
+}
+
+static int yaffs_write_hotness_new_chunk(struct yaffs_dev *dev,
+				 const u8 *data,
+				 struct yaffs_ext_tags *tags, int use_reserver)
+{
+	u32 attempts = 0;
+	int write_ok = 0;
+	int chunk;
+
+	yaffs2_checkpt_invalidate(dev);
+
+	do {
+		struct yaffs_block_info *bi = 0;
+		int erased_ok = 0;
+
+		if(tags->interval == 0) {
+			chunk = yaffs_alloc_chunk(dev, use_reserver, &bi);
+		}
+		else if(tags->interval > dev->page_hotness_interval_line){
+			chunk = yaffs_alloc_cold_chunk(dev, use_reserver, &bi);
+		}
+		else {
+			chunk = yaffs_alloc_hot_chunk(dev, use_reserver, &bi);
+		}
+
+		
+		if (chunk < 0) {
+			/* no space */
+			break;
+		}
+
+		/* First check this chunk is erased, if it needs
+		 * checking.  The checking policy (unless forced
+		 * always on) is as follows:
+		 *
+		 * Check the first page we try to write in a block.
+		 * If the check passes then we don't need to check any
+		 * more.        If the check fails, we check again...
+		 * If the block has been erased, we don't need to check.
+		 *
+		 * However, if the block has been prioritised for gc,
+		 * then we think there might be something odd about
+		 * this block and stop using it.
+		 *
+		 * Rationale: We should only ever see chunks that have
+		 * not been erased if there was a partially written
+		 * chunk due to power loss.  This checking policy should
+		 * catch that case with very few checks and thus save a
+		 * lot of checks that are most likely not needed.
+		 *
+		 * Mods to the above
+		 * If an erase check fails or the write fails we skip the
+		 * rest of the block.
+		 */
+
+		/* let's give it a try */
+		attempts++;
+
+		if (dev->param.always_check_erased)
+			bi->skip_erased_check = 0;
+
+		if (!bi->skip_erased_check) {
+			erased_ok = yaffs_check_chunk_erased(dev, chunk);
+			if (erased_ok != YAFFS_OK) {
+				yaffs_trace(YAFFS_TRACE_ERROR,
+				  "**>> yaffs chunk %d was not erased",
+				  chunk);
+
+				/* If not erased, delete this one,
+				 * skip rest of block and
+				 * try another chunk */
+				yaffs_chunk_del(dev, chunk, 1, __LINE__);
+				yaffs_skip_rest_of_block(dev);
+				continue;
+			}
+		}
+
+		write_ok = yaffs_wr_chunk_tags_nand(dev, chunk, data, tags);
+
+		if (!bi->skip_erased_check)
+			write_ok =
+			    yaffs_verify_chunk_written(dev, chunk, data, tags);
+
+		if (write_ok != YAFFS_OK) {
+			/* Clean up aborted write, skip to next block and
+			 * try another chunk */
+			yaffs_handle_chunk_wr_error(dev, chunk, erased_ok);
+			continue;
+		}
+
+		bi->skip_erased_check = 1;
+
+		/* Copy the data into the robustification buffer */
+		yaffs_handle_chunk_wr_ok(dev, chunk, data, tags);
+
+	} while (write_ok != YAFFS_OK &&
+		 (yaffs_wr_attempts == 0 || attempts <= yaffs_wr_attempts));
+
+	if (!write_ok)
+		chunk = -1;
+
+	if (attempts > 1) {
+		yaffs_trace(YAFFS_TRACE_ERROR,
+			"**>> yaffs write required %d attempts",
+			attempts);
+		dev->n_retried_writes += (attempts - 1);
+	}
+
+	return chunk;
 }
 
 static int yaffs_write_new_chunk(struct yaffs_dev *dev,
@@ -2328,10 +2635,12 @@ static inline int yaffs_gc_process_chunk(struct yaffs_dev *dev,
 
 			yaffs_verify_oh(object, oh, &tags, 1);
 			new_chunk =
-			    yaffs_write_new_chunk(dev, (u8 *) oh, &tags, 1);
+			    // yaffs_write_new_chunk(dev, (u8 *) oh, &tags, 1);
+				yaffs_write_hotness_new_chunk(dev, (u8 *) oh, &tags, 1);
 		} else {
 			new_chunk =
-			    yaffs_write_new_chunk(dev, buffer, &tags, 1);
+			    // yaffs_write_new_chunk(dev, buffer, &tags, 1);
+				yaffs_write_hotness_new_chunk(dev, buffer, &tags, 1);
 		}
 
 		if (new_chunk < 0) {
@@ -2450,6 +2759,40 @@ static int yaffs_gc_block(struct yaffs_dev *dev, int block, int whole_block)
 		dev->gc_block = 0;
 		dev->gc_chunk = 0;
 		dev->n_clean_ups = 0;
+	}
+
+	struct blocks_node *curr;
+	struct blocks_node *prev;
+	struct blocks_node *tmp;
+	curr = dev->ordered_count_list;
+
+	while(curr->next_block) {
+		if(curr->block_no == block) break;
+		curr = curr->next_block;
+	}
+
+	curr->erase_count++;
+	prev = curr->prev_block;
+
+	while(prev->prev_block && prev->prev_block->erase_count < curr->erase_count) {
+		prev = prev->prev_block;
+	}
+
+	if(prev->prev_block == NULL) {
+		dev->ordered_count_list = curr;
+	    curr->prev_block->next_block = curr->next_block;
+		curr->next_block->prev_block = curr->prev_block;
+		curr->prev_block = NULL;
+		curr->next_block = prev;
+		prev->prev_block = curr;
+	}
+	else {
+		curr->prev_block->next_block = curr->next_block;
+		curr->next_block->prev_block = curr->prev_block;
+		curr->prev_block = prev->prev_block;
+		prev->prev_block->next_block = curr;
+		prev->prev_block = curr;
+		curr->next_block = prev;
 	}
 
 	dev->gc_disable = 0;
@@ -2854,6 +3197,9 @@ int yaffs_wr_data_obj(struct yaffs_obj *in, int inode_chunk,
 	    (prev_chunk_id > 0) ? prev_tags.serial_number + 1 : 1;
 	new_tags.n_bytes = n_bytes;
 
+	new_tags.interval = (prev_chunk_id > 0) ? dev->seq_number - prev_tags.seq_number : 0;
+	dev->page_hotness_interval_line = (dev->page_hotness_interval_line + new_tags.interval) / 2;
+
 	if (n_bytes < 1 || n_bytes > (int)dev->data_bytes_per_chunk) {
 		yaffs_trace(YAFFS_TRACE_ERROR,
 		  "Writing %d bytes to chunk!!!!!!!!!",
@@ -3167,6 +3513,8 @@ int yaffs_update_oh(struct yaffs_obj *in, const YCHAR *name, int force,
 	new_tags.obj_id = in->obj_id;
 	new_tags.serial_number = in->serial;
 
+	new_tags.interval = (prev_chunk_id > 0) ? dev->seq_number - old_tags.seq_number : 0;
+	dev->page_hotness_interval_line = (dev->page_hotness_interval_line + new_tags.interval) / 2;
 	/* Add extra info for file header */
 	new_tags.extra_available = 1;
 	new_tags.extra_parent_id = oh->parent_obj_id;
@@ -4702,6 +5050,28 @@ int yaffs_guts_initialise(struct yaffs_dev *dev)
 	dev->oldest_dirty_seq = 0;
 	dev->oldest_dirty_block = 0;
 
+	dev->ordered_count_list = kmalloc(1024 * sizeof(struct  blocks_node), GFP_NOFS);
+	struct blocks_node * prev = NULL;
+	struct blocks_node * curr;
+	struct blocks_node * next;
+	u8 *mem;
+	mem = (u8 *) (dev->ordered_count_list);
+	int i = 0;
+	for(i = 0; i < 1023; i++) {
+		curr =  (struct blocks_node *)&mem[i * sizeof(struct  blocks_node)];
+		curr->block_no = i;
+		curr->erase_count = 0;
+		curr->prev_block = prev;
+		next = (struct blocks_node *)&mem[(i + 1) * sizeof(struct  blocks_node)];
+		curr->next_block = next;
+		prev = curr;
+	}
+	curr =  (struct blocks_node *)&mem[1023 * sizeof(struct  blocks_node)];
+	curr->block_no = 1023;
+	curr->erase_count = 0;
+	curr->prev_block = prev;
+	curr->next_block = NULL;
+
 	yaffs_endian_config(dev);
 
 	/* Initialise temporary caches. */
@@ -4761,6 +5131,12 @@ int yaffs_guts_initialise(struct yaffs_dev *dev)
 				dev->n_deleted_files = 0;
 				dev->n_unlinked_files = 0;
 				dev->n_bg_deletions = 0;
+
+				dev->cold_alloc_block = -1;
+				dev->hot_alloc_block = -1;
+				dev->cold_alloc_page = -1;
+				dev->hot_alloc_page = -1;
+				
 
 				if (!init_failed && !yaffs_init_blocks(dev))
 					init_failed = 1;
