@@ -2773,27 +2773,50 @@ static int yaffs_gc_block(struct yaffs_dev *dev, int block, int whole_block)
 
 	curr->erase_count++;
 	prev = curr->prev_block;
+	yaffs_trace(YAFFS_TRACE_GC,
+					"yaffs: curr_block_no: %d ,erase_count %d",
+					block, curr->erase_count);
+	if(prev != NULL) {
+		// yaffs_trace(YAFFS_TRACE_GC,
+		// 			"yaffs: curr_block_no: %d ,erase_count %d",
+		// 			block, curr->erase_count);
+		// if(prev == NULL) {
+		// 	yaffs_trace(YAFFS_TRACE_GC,
+		// 				"yaffs: prev is null");
+		// }
+		// else {
+		// 	yaffs_trace(YAFFS_TRACE_GC,
+		// 			"yaffs: 1 prev_block_no: %d ,erase_count %d",
+		// 			prev->block_no, prev->erase_count);
+		// }
 
-	while(prev->prev_block && prev->prev_block->erase_count < curr->erase_count) {
-		prev = prev->prev_block;
+		while(prev->prev_block && prev->prev_block->erase_count < curr->erase_count) {
+			prev = prev->prev_block;
+		}
+
+		yaffs_trace(YAFFS_TRACE_GC,
+					"yaffs: 2 prev_block_no: %d ,erase_count %d",
+					prev->block_no, prev->erase_count);
+
+		if(prev->prev_block == NULL) {
+			dev->ordered_count_list = curr;
+			curr->prev_block->next_block = curr->next_block;
+			if(curr->next_block) curr->next_block->prev_block = curr->prev_block;
+			curr->prev_block = NULL;
+			curr->next_block = prev;
+			prev->prev_block = curr;
+		}
+		else {
+			curr->prev_block->next_block = curr->next_block;
+			if(curr->next_block) curr->next_block->prev_block = curr->prev_block;
+			curr->prev_block = prev->prev_block;
+			prev->prev_block->next_block = curr;
+			prev->prev_block = curr;
+			curr->next_block = prev;
+		}
 	}
 
-	if(prev->prev_block == NULL) {
-		dev->ordered_count_list = curr;
-	    curr->prev_block->next_block = curr->next_block;
-		curr->next_block->prev_block = curr->prev_block;
-		curr->prev_block = NULL;
-		curr->next_block = prev;
-		prev->prev_block = curr;
-	}
-	else {
-		curr->prev_block->next_block = curr->next_block;
-		curr->next_block->prev_block = curr->prev_block;
-		curr->prev_block = prev->prev_block;
-		prev->prev_block->next_block = curr;
-		prev->prev_block = curr;
-		curr->next_block = prev;
-	}
+	
 
 	dev->gc_disable = 0;
 

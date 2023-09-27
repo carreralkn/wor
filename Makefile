@@ -23,6 +23,7 @@ endif
 
 ifneq ($(KERNELRELEASE),)
 	EXTRA_CFLAGS += -DYAFFS_OUT_OF_TREE
+	EXTRA_CFLAGS += -g
 
 	obj-m := $(YAFFS_O)
 
@@ -61,6 +62,8 @@ ifneq ($(KERNELRELEASE),)
 else
 	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 	PWD := $(shell pwd)
+
+EXTRA_CFLAGS += -g
 
 modules default:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules

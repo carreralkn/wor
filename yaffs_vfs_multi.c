@@ -183,7 +183,7 @@ static uint32_t YCALCBLOCKS(uint64_t partition_size, uint32_t block_size)
 #include "yaffs_packedtags2.h"
 #include "yaffs_getblockinfo.h"
 
-unsigned int yaffs_trace_mask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS | 0;
+unsigned int yaffs_trace_mask = YAFFS_TRACE_BAD_BLOCKS | YAFFS_TRACE_ALWAYS | YAFFS_TRACE_GC | 0;
 unsigned int yaffs_wr_attempts = YAFFS_WR_ATTEMPTS;
 unsigned int yaffs_auto_checkpoint = 1;
 unsigned int yaffs_gc_control = 1;
@@ -3372,11 +3372,13 @@ static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 	seq_printf(m, "n_bg_deletions....... %u\n", dev->n_bg_deletions);
 	seq_printf(m, "tags_used............ %u\n", dev->tags_used);
 	seq_printf(m, "summary_used......... %u\n", dev->summary_used);
+
+	seq_printf(m, "HOT_COLD %u\n");
 	
-	for(i = 0; i < 1024; i++) {
-		seq_printf(m, "block_no...%u...erase_count...%u...", curr->block_no, curr->erase_count);
-		curr = curr->next_block;
-	}
+	// for(i = 0; i < 1024; i++) {
+	// 	seq_printf(m, "block_no...%u...erase_count...%u...", curr->block_no, curr->erase_count);
+	// 	curr = curr->next_block;
+	// }
 }
 
 // static int yaffs_proc_read(char *page,
