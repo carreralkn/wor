@@ -1,2 +1,4 @@
 myversion
 HOT COLD
+添加冷热分离
+interval的计算方式为interval_line
