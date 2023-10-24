@@ -2839,6 +2839,12 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 	struct yaffs_block_info *bi;
 	u32 threshold = dev->param.chunks_per_block;
 
+	u32 maxage = 0;
+	u32 blockage = 0;
+	double blocks_w = 0;
+	double w = 0;
+	double u = 0;
+
 	(void) prioritised;
 
 	/* First let's see if we need to grab a prioritised block */
@@ -2908,6 +2914,16 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 				iterations = 100;
 		}
 
+		w = (double)(dev->n_erased_blocks) / (double)(n_blocks);
+
+		for(i = dev->internal_start_block; i < dev->internal_end_block; i++) {
+			bi = yaffs_get_block_info(dev, i);
+			if(bi->block_state == YAFFS_BLOCK_STATE_FULL) {
+				blockage = dev->seq_number - bi->seq_number;
+				if(blockage > maxage) maxage = blockage;
+			}
+		}
+
 		for (i = 0;
 		     i < iterations &&
 		     (dev->gc_dirtiest < 1 ||
@@ -2922,13 +2938,17 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 			bi = yaffs_get_block_info(dev, dev->gc_block_finder);
 
 			pages_used = bi->pages_in_use - bi->soft_del_pages;
+			blockage = dev->seq_number - bi->seq_number;
+			u = (double)pages_used / (double)dev->param.chunks_per_block;
+			blocks_w = (1.0 - w) * (1.0 - u) + w * (double)blockage / (double) maxage;
 
 			if (bi->block_state == YAFFS_BLOCK_STATE_FULL &&
 			    pages_used < dev->param.chunks_per_block &&
 			    (dev->gc_dirtiest < 1 ||
-			     pages_used < dev->gc_pages_in_use) &&
+			     blocks_w > dev->gc_blocks_w) &&
 			    yaffs_block_ok_for_gc(dev, bi)) {
 				dev->gc_dirtiest = dev->gc_block_finder;
+				dev->gc_blocks_w = blocks_w;
 				dev->gc_pages_in_use = pages_used;
 			}
 		}

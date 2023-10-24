@@ -775,6 +775,8 @@ struct yaffs_dev {
 	unsigned gc_skip;
 	struct yaffs_summary_tags *gc_sum_tags;
 
+	double gc_blocks_w;
+
 	unsigned page_hotness_interval_line;
 
 	/* Special directories */

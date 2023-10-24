@@ -3373,7 +3373,9 @@ static void yaffs_dump_dev_part1(struct seq_file *m, struct yaffs_dev *dev)
 	seq_printf(m, "tags_used............ %u\n", dev->tags_used);
 	seq_printf(m, "summary_used......... %u\n", dev->summary_used);
 
-	seq_printf(m, "HOT_COLD %u\n");
+	seq_printf(m, "HOT_COLD\n");
+	seq_printf(m, "----------------------------\n");
+	seq_printf(m, "CHOOSE\n");
 	
 	// for(i = 0; i < 1024; i++) {
 	// 	seq_printf(m, "block_no...%u...erase_count...%u...", curr->block_no, curr->erase_count);
