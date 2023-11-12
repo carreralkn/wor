@@ -2773,9 +2773,11 @@ static int yaffs_gc_block(struct yaffs_dev *dev, int block, int whole_block)
 
 	curr->erase_count++;
 	prev = curr->prev_block;
-	yaffs_trace(YAFFS_TRACE_GC,
-					"yaffs: curr_block_no: %d ,erase_count %d",
-					block, curr->erase_count);
+	// yaffs_trace(YAFFS_TRACE_GC,
+	// 				"yaffs: curr_block_no: %d ,erase_count %d",
+	// 				block, curr->erase_count);
+
+
 	if(prev != NULL) {
 		// yaffs_trace(YAFFS_TRACE_GC,
 		// 			"yaffs: curr_block_no: %d ,erase_count %d",
@@ -2794,9 +2796,9 @@ static int yaffs_gc_block(struct yaffs_dev *dev, int block, int whole_block)
 			prev = prev->prev_block;
 		}
 
-		yaffs_trace(YAFFS_TRACE_GC,
-					"yaffs: 2 prev_block_no: %d ,erase_count %d",
-					prev->block_no, prev->erase_count);
+		// yaffs_trace(YAFFS_TRACE_GC,
+		// 			"yaffs: 2 prev_block_no: %d ,erase_count %d",
+		// 			prev->block_no, prev->erase_count);
 
 		if(prev->prev_block == NULL) {
 			dev->ordered_count_list = curr;
@@ -2914,7 +2916,9 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 				iterations = 100;
 		}
 
-		w = (double)(dev->n_erased_blocks) / (double)(n_blocks);
+		// w = (double)(dev->n_erased_blocks) / (double)(n_blocks);
+		w = 100 * dev->n_erased_blocks / n_blocks;
+		dev->all_w = w;
 
 		for(i = dev->internal_start_block; i < dev->internal_end_block; i++) {
 			bi = yaffs_get_block_info(dev, i);
@@ -2939,8 +2943,11 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 
 			pages_used = bi->pages_in_use - bi->soft_del_pages;
 			blockage = dev->seq_number - bi->seq_number;
-			u = (double)pages_used / (double)dev->param.chunks_per_block;
-			blocks_w = (1.0 - w) * (1.0 - u) + w * (double)blockage / (double) maxage;
+
+			// u = (double)pages_used / (double)dev->param.chunks_per_block;
+			u = 100 * pages_used / dev->param.chunks_per_block;
+			// blocks_w = (1.0 - w) * (1.0 - u) + w * (double)blockage / (double) maxage;
+			blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
 
 			if (bi->block_state == YAFFS_BLOCK_STATE_FULL &&
 			    pages_used < dev->param.chunks_per_block &&
@@ -2950,11 +2957,32 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 				dev->gc_dirtiest = dev->gc_block_finder;
 				dev->gc_blocks_w = blocks_w;
 				dev->gc_pages_in_use = pages_used;
+				dev->all_u = u;
+				dev->gc_blocks_age = blockage;
 			}
 		}
 
 		if (dev->gc_dirtiest > 0 && dev->gc_pages_in_use <= threshold)
 			selected = dev->gc_dirtiest;
+		
+		// char buf[100];
+		// sprintf(buf, "%f", dev->gc_blocks_w);
+		// sprintf(buf, "%f", dev->all_u);
+		// sprintf(buf, "%f",dev->all_w);
+		// printk(KERN_DEBUG "yaffs: %s\n", buf);
+
+		// printk(KERN_DEBUG "yaffs: GC Selected block %d with %d free, block_age:%d, block_w: u:, w:%s \n", 
+		// dev->gc_dirtiest,
+		// dev->param.chunks_per_block - dev->gc_pages_in_use,
+		// dev->gc_blocks_age, buf);
+		yaffs_trace(YAFFS_TRACE_GC,
+			"GC Selected block %d with %d free, block_age:%d, block_w:%d, u:%d, w:%d\n",
+			dev->gc_dirtiest,
+			dev->param.chunks_per_block - dev->gc_pages_in_use,
+			dev->gc_blocks_age, 
+			dev->gc_blocks_w,
+			dev->all_u,
+			dev->all_w);
 	}
 
 	/*

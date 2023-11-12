@@ -775,7 +775,10 @@ struct yaffs_dev {
 	unsigned gc_skip;
 	struct yaffs_summary_tags *gc_sum_tags;
 
-	double gc_blocks_w;
+	unsigned gc_blocks_w;
+	unsigned all_w; // 全局w，空闲块占比
+	unsigned all_u; //全局u，
+	unsigned gc_blocks_age;
 
 	unsigned page_hotness_interval_line;
 
