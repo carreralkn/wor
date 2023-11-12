@@ -2947,7 +2947,8 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 			// u = (double)pages_used / (double)dev->param.chunks_per_block;
 			u = 100 * pages_used / dev->param.chunks_per_block;
 			// blocks_w = (1.0 - w) * (1.0 - u) + w * (double)blockage / (double) maxage;
-			blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
+			// blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
+			 blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
 
 			if (bi->block_state == YAFFS_BLOCK_STATE_FULL &&
 			    pages_used < dev->param.chunks_per_block &&
@@ -2976,13 +2977,14 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 		// dev->param.chunks_per_block - dev->gc_pages_in_use,
 		// dev->gc_blocks_age, buf);
 		yaffs_trace(YAFFS_TRACE_GC,
-			"GC Selected block %d with %d free, block_age:%d, block_w:%d, u:%d, w:%d\n",
+			"GC Selected block %d with %d free, block_age:%d, block_w:%d, u:%d, w:%d\n, maxage:%d",
 			dev->gc_dirtiest,
 			dev->param.chunks_per_block - dev->gc_pages_in_use,
 			dev->gc_blocks_age, 
 			dev->gc_blocks_w,
 			dev->all_u,
-			dev->all_w);
+			dev->all_w,
+			maxage);
 	}
 
 	/*
