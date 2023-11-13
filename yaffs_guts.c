@@ -2948,7 +2948,7 @@ static unsigned yaffs_find_gc_block(struct yaffs_dev *dev,
 			u = 100 * pages_used / dev->param.chunks_per_block;
 			// blocks_w = (1.0 - w) * (1.0 - u) + w * (double)blockage / (double) maxage;
 			// blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
-			 blocks_w = (100 - w) * (100 - u) + 100 * w * blockage / maxage;
+			 blocks_w = 100 * (100 - u) * blockage / maxage / u / 2;
 
 			if (bi->block_state == YAFFS_BLOCK_STATE_FULL &&
 			    pages_used < dev->param.chunks_per_block &&
